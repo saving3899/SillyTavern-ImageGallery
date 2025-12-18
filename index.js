@@ -82,11 +82,12 @@ async function apiPost(url, data) {
     });
 }
 
-let maxZIndex = 2000;
+let maxZIndex = 100000;
 function bringToFront($element) {
     maxZIndex++;
     $element.css('z-index', maxZIndex);
 }
+
 
 let renderReqId = null;
 let latestRequestedFolder = null;
@@ -350,6 +351,23 @@ function createGalleryWindow() {
 
     $('body').append(galleryHtml);
     const $gallery = $('#st-image-gallery');
+
+    if (window.ResizeObserver) {
+        const resizeObserver = new ResizeObserver(entries => {
+            for (let entry of entries) {
+                if (entry.contentRect.width < 600) {
+                    $gallery.addClass('st-gallery-compact');
+                } else {
+                    $gallery.removeClass('st-gallery-compact');
+                }
+            }
+        });
+        resizeObserver.observe($gallery[0]);
+
+        $gallery.on('remove', () => {
+            resizeObserver.disconnect();
+        });
+    }
 
     const rect = ensureOnScreen(galleryRect, 800, 600);
 
