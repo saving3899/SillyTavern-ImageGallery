@@ -429,19 +429,29 @@
     .gallery-controls i,
     .gallery-controls .fa-solid,
     .st-gallery-btn {
-        font-size: 24px !important;
-        padding: 15px !important;
-        margin: 0 5px !important;
+        font-size: 18px !important;
+        padding: 8px !important;
+        margin: 0 3px !important;
     }
 
     .gallery-header {
         height: auto !important;
-        min-height: 60px !important;
-        padding: 10px !important;
+        min-height: 44px !important;
+        padding: 6px 10px !important;
     }
 
     .gallery-title {
-        font-size: 1.2em !important;
+        font-size: 1em !important;
+    }
+
+    /* Hide download button on mobile in image viewer (long-press available) */
+    #viewer-download {
+        display: none !important;
+    }
+
+    /* Selection counter on mobile */
+    .selection-counter {
+        font-size: 0.8em !important;
     }
 }
 
@@ -484,4 +494,138 @@
     z-index: 2005;
     pointer-events: none;
     opacity: 0.8;
+}
+
+/* ==================== Selection Mode Styles ==================== */
+
+/* Selection checkbox on image cards */
+.gallery-image-card .selection-checkbox {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    width: 22px;
+    height: 22px;
+    background: rgba(0, 0, 0, 0.6);
+    border: 2px solid rgba(255, 255, 255, 0.8);
+    border-radius: 4px;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 5;
+    pointer-events: none;
+}
+
+/* Show checkboxes in selection mode */
+.selection-mode .gallery-image-card .selection-checkbox {
+    display: flex;
+}
+
+/* Selected card styling */
+.gallery-image-card.selected {
+    border: 3px solid var(--SmartThemeQuoteColor, #ffaa00) !important;
+    box-shadow: 0 0 10px rgba(255, 170, 0, 0.5);
+}
+
+.gallery-image-card.selected .selection-checkbox {
+    background: var(--SmartThemeQuoteColor, #ffaa00);
+    border-color: var(--SmartThemeQuoteColor, #ffaa00);
+}
+
+.gallery-image-card.selected .selection-checkbox::after {
+    content: '✓';
+    color: white;
+    font-weight: bold;
+    font-size: 14px;
+}
+
+/* Folder list disabled in selection mode */
+.selection-mode .folder-item {
+    pointer-events: none;
+    opacity: 0.5;
+}
+
+.selection-mode #gallery-mobile-folder-select {
+    pointer-events: none;
+    opacity: 0.5;
+}
+
+/* Selection controls styling */
+.selection-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.selection-counter {
+    font-size: 0.9em;
+    opacity: 0.8;
+    margin-right: 5px;
+    white-space: nowrap;
+}
+
+/* Delete confirmation modal */
+.delete-confirm-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 999999;
+}
+
+.delete-confirm-content {
+    background: var(--SmartThemeBlurTintColor, rgba(30, 30, 30, 0.95));
+    border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.1));
+    border-radius: 10px;
+    padding: 25px;
+    max-width: 400px;
+    text-align: center;
+    color: var(--SmartThemeBodyColor, #e0e0e0);
+}
+
+.delete-confirm-content h3 {
+    margin: 0 0 15px 0;
+    font-size: 1.3em;
+}
+
+.delete-confirm-content p {
+    margin: 10px 0;
+}
+
+.delete-confirm-buttons {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin-top: 20px;
+}
+
+.delete-confirm-btn {
+    padding: 10px 25px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 1em;
+    transition: all 0.2s;
+}
+
+.delete-confirm-btn.cancel {
+    background: var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.2));
+    color: var(--SmartThemeBodyColor, #e0e0e0);
+}
+
+.delete-confirm-btn.cancel:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+.delete-confirm-btn.confirm {
+    background: #ff4444;
+    color: white;
+}
+
+.delete-confirm-btn.confirm:hover {
+    background: #ff6666;
 }

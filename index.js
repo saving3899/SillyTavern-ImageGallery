@@ -4,6 +4,10 @@ let currentFolder = '';
 let currentImages = [];
 let currentImageIndex = -1;
 
+// Selection Mode State
+let isSelectionMode = false;
+let selectedImages = new Set();
+
 let galleryRect = null;
 let viewerRect = null;
 
@@ -279,8 +283,21 @@ function renderImages(images, folder) {
 
             const card = document.createElement('div');
             card.className = 'gallery-image-card interactable';
+            card.dataset.filename = img;
             card.title = img;
-            card.onclick = () => openImageModal(globalIndex);
+
+            // Selection checkbox
+            const checkbox = document.createElement('div');
+            checkbox.className = 'selection-checkbox';
+            card.appendChild(checkbox);
+
+            card.onclick = () => {
+                if (isSelectionMode) {
+                    toggleImageSelection(img, card);
+                } else {
+                    openImageModal(globalIndex);
+                }
+            };
 
             const thumb = document.createElement('img');
             thumb.src = url;
@@ -315,6 +332,151 @@ function renderImages(images, folder) {
     renderNextPage();
 }
 
+// ==================== Selection Mode Functions ====================
+
+function enterSelectionMode() {
+    isSelectionMode = true;
+    selectedImages.clear();
+    $('#st-image-gallery').addClass('selection-mode');
+    $('#gallery-normal-controls').hide();
+    $('#gallery-selection-controls').show();
+    updateSelectionCounter();
+}
+
+function exitSelectionMode() {
+    isSelectionMode = false;
+    selectedImages.clear();
+    $('#st-image-gallery').removeClass('selection-mode');
+    $('#gallery-normal-controls').show();
+    $('#gallery-selection-controls').hide();
+    $('#gallery-image-grid .gallery-image-card').removeClass('selected');
+}
+
+function toggleImageSelection(filename, cardElement) {
+    if (selectedImages.has(filename)) {
+        selectedImages.delete(filename);
+        $(cardElement).removeClass('selected');
+    } else {
+        selectedImages.add(filename);
+        $(cardElement).addClass('selected');
+    }
+    updateSelectionCounter();
+}
+
+function updateSelectionCounter() {
+    const count = selectedImages.size;
+    $('#selection-counter').text(`${count}개 선택`);
+
+    // Disable/enable delete and download buttons based on selection
+    if (count === 0) {
+        $('#gallery-delete-selected, #gallery-download-selected').addClass('disabled').css('opacity', '0.3');
+    } else {
+        $('#gallery-delete-selected, #gallery-download-selected').removeClass('disabled').css('opacity', '1');
+    }
+}
+
+function showDeleteConfirmModal(count, onConfirm) {
+    const modalHtml = `
+        <div id="delete-confirm-modal" class="delete-confirm-modal">
+            <div class="delete-confirm-content">
+                <h3>이미지 삭제</h3>
+                <p>${count}개의 이미지를 삭제하시겠습니까?</p>
+                <p style="color: #ff6666; font-size: 0.9em;">이 작업은 되돌릴 수 없습니다.</p>
+                <div class="delete-confirm-buttons">
+                    <button class="delete-confirm-btn cancel">취소</button>
+                    <button class="delete-confirm-btn confirm">삭제</button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    $('body').append(modalHtml);
+
+    $('#delete-confirm-modal .cancel').on('click', () => {
+        $('#delete-confirm-modal').remove();
+    });
+
+    $('#delete-confirm-modal .confirm').on('click', () => {
+        $('#delete-confirm-modal').remove();
+        onConfirm();
+    });
+}
+
+async function deleteSelectedImages() {
+    if (selectedImages.size === 0) return;
+
+    showDeleteConfirmModal(selectedImages.size, async () => {
+        const toDelete = Array.from(selectedImages);
+        let successCount = 0;
+        let failCount = 0;
+
+        for (const filename of toDelete) {
+            try {
+                const relativePath = `user/images/${currentFolder}/${filename}`;
+                await apiPost('/api/images/delete', { path: relativePath });
+                successCount++;
+            } catch (e) {
+                console.error(`Failed to delete ${filename}:`, e);
+                failCount++;
+            }
+        }
+
+        if (window.toastr) {
+            if (failCount === 0) {
+                toastr.success(`${successCount}개의 이미지가 삭제되었습니다.`);
+            } else {
+                toastr.warning(`${successCount}개 삭제됨, ${failCount}개 실패`);
+            }
+        }
+
+        exitSelectionMode();
+        loadImages(currentFolder);
+    });
+}
+
+async function downloadSelectedImages() {
+    if (selectedImages.size === 0) return;
+
+    const toDownload = Array.from(selectedImages);
+
+    for (const filename of toDownload) {
+        try {
+            const safeFolder = encodeURIComponent(currentFolder);
+            const safeFilename = encodeURIComponent(filename);
+            const imageUrl = `user/images/${safeFolder}/${safeFilename}`;
+
+            const response = await fetch(imageUrl);
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+
+            setTimeout(() => {
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+            }, 100);
+
+            // Small delay between downloads to prevent browser blocking
+            await new Promise(resolve => setTimeout(resolve, 200));
+        } catch (e) {
+            console.error(`Failed to download ${filename}:`, e);
+        }
+    }
+
+    if (window.toastr) {
+        toastr.success(`${toDownload.length}개의 이미지 다운로드 완료`);
+    }
+
+    exitSelectionMode();
+}
+
+// ==================== End Selection Mode Functions ====================
+
 function createGalleryWindow() {
     if ($('#st-image-gallery').length) {
         const $gallery = $('#st-image-gallery');
@@ -327,11 +489,19 @@ function createGalleryWindow() {
         <div id="st-image-gallery" class="st-gallery-window" style="display:none;">
             <div class="gallery-header">
                 <span class="gallery-title">이미지 갤러리</span>
-                <div class="gallery-controls">
+                <div class="gallery-controls" id="gallery-normal-controls">
+                    <i id="gallery-select" class="fa-solid fa-check-square" title="Selection Mode"></i>
                     <i id="gallery-go-char" class="fa-solid fa-user-circle" title="Go to Current Character"></i>
                     <i id="gallery-sort" class="fa-solid fa-sort-amount-down" title="Sort Order: Newest First"></i>
                     <i id="gallery-refresh" class="fa-solid fa-sync-alt" title="Refresh"></i>
                     <i id="gallery-close" class="fa-solid fa-times" title="Close"></i>
+                </div>
+                <div class="gallery-controls selection-controls" id="gallery-selection-controls" style="display:none;">
+                    <span class="selection-counter" id="selection-counter">0개 선택</span>
+                    <i id="gallery-select-all" class="fa-solid fa-check-double" title="Select All"></i>
+                    <i id="gallery-download-selected" class="fa-solid fa-download" title="Download Selected"></i>
+                    <i id="gallery-delete-selected" class="fa-solid fa-trash warning" title="Delete Selected"></i>
+                    <i id="gallery-cancel-select" class="fa-solid fa-times" title="Cancel Selection"></i>
                 </div>
             </div>
             <div class="gallery-content">
@@ -450,6 +620,9 @@ function createGalleryWindow() {
             cancelAnimationFrame(renderReqId);
             renderReqId = null;
         }
+        // Reset selection mode state
+        isSelectionMode = false;
+        selectedImages.clear();
         $('#st-image-gallery').remove();
     }
 
@@ -482,6 +655,27 @@ function createGalleryWindow() {
         const selected = $(this).val();
         if (selected) loadImages(selected);
     });
+
+    // Selection Mode Event Handlers
+    $('#gallery-select').on('click', () => enterSelectionMode());
+    $('#gallery-cancel-select').on('click', () => exitSelectionMode());
+
+    $('#gallery-select-all').on('click', () => {
+        const allCards = $('#gallery-image-grid .gallery-image-card');
+        if (selectedImages.size === currentImages.length) {
+            // Deselect all
+            selectedImages.clear();
+            allCards.removeClass('selected');
+        } else {
+            // Select all
+            currentImages.forEach(img => selectedImages.add(img));
+            allCards.addClass('selected');
+        }
+        updateSelectionCounter();
+    });
+
+    $('#gallery-delete-selected').on('click', () => deleteSelectedImages());
+    $('#gallery-download-selected').on('click', () => downloadSelectedImages());
 
     loadFolders();
 
